@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+egui = { version = "0.33.3", features = ["persistence"] }
+eframe = { version = "0.33.3", features = ["persistence"] }
+rfd = "0.17.1"
