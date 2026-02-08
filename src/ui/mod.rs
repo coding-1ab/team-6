@@ -1,6 +1,6 @@
 pub mod midi_instruments;
 
-use std::env::consts::OS;
+use std::{cmp, env::consts::OS};
 use eframe::{App, Error, Frame, NativeOptions};
 use egui::{
     Color32,
@@ -342,11 +342,9 @@ impl Player {
                     if open_btn_ui.clicked() {
                         if is_opend {
                             self.open_file_name.clear();
-                        } else {
-                            if let Some(path) = FileDialog::default().pick_file() {
-                                let file_name = path.file_name().unwrap();
-                                self.open_file_name = String::from(file_name.to_str().unwrap());
-                            }
+                        } else if let Some(path) = FileDialog::default().pick_file() {
+                            let file_name = path.file_name().unwrap();
+                            self.open_file_name = String::from(file_name.to_str().unwrap());
                         }
                     }
 
@@ -415,21 +413,18 @@ impl Player {
         // |                              ...                            |
         // | D3  |       |       |       | [===] |       |       |       |
         // +-----+-------+-------+-------+-------+-------+-------+-------+
+        let rect = ui.response().rect;
         let max_width = ui.available_width();
-        let max_height = 128.0 * 12.0;
-        ui.vertical(|ui| {
-            let painter = ui.painter();
-            painter.line_segment(
-                [Pos2::new(250.0, 60.0), Pos2::new(max_width, 60.0)],
-                Stroke::new(11.0, Color32::LIGHT_GRAY),
-            );
-        });
+        let max_height = 128.0 * 12.0; // 128음역 * 음 높이(12픽셀)
+        let label_width = 35.0; // 음 이름 표시 너비 값
+        let tick_width = 10.0; // 1틱당 너비 값
 
+        // 노트 그리드 영역
         egui::ScrollArea::both()
             .max_height(max_height)
             .hscroll(true)
             .vscroll(true)
-            .auto_shrink(false)
+            .auto_shrink([false; 2])
             .show(ui, |ui| {
                 let size = egui::vec2(max_width, max_height);
                 let (response, _rect) = ui.allocate_exact_size(size, egui::Sense::hover());
@@ -439,7 +434,6 @@ impl Player {
                 // 기준 좌표 계산
                 let start_x = response.min.x;
                 let start_y = response.min.y;
-                let label_width = 35.0; // 음 이름 표시 너비 값
                 let grid_start_x = start_x + label_width;
                 let width = response.max.x;
                 let height = response.max.y;
@@ -456,17 +450,17 @@ impl Player {
                     let rgb = color.r() - 50;
                     painter.rect_filled(
                         egui::Rect::from_points(&[
-                            Pos2::new(start_x, y + 1.0),
-                            Pos2::new(start_x + label_width - 1.0, y + 12.0)
+                            Pos2::new(rect.min.x, y + 1.0),
+                            Pos2::new(rect.min.x + label_width - 1.0, y + 12.0)
                         ]),
                         0.0, Color32::from_rgb(rgb, rgb, rgb),
                     );
 
                     // 음 이름 텍스트 표시
                     painter.text(
-                        Pos2::new(start_x + 3.0, y),
+                        Pos2::new(rect.min.x + 3.0, y),
                         egui::Align2::LEFT_TOP,
-                        format!("{}{}", NOTE_NAMES[note % 12], (note / 12) as i8),
+                        format!("{}{}", NOTE_NAMES[note % 12], (note / 12) as i8 - 1),
                         font_id.clone(),
                         Color32::from_rgb(34, 34, 34),
                     );
@@ -491,6 +485,30 @@ impl Player {
                     );
                 }
             });
+
+        // 타임라인 영역
+        let painter = ui.painter();
+        painter.rect(
+            egui::Rect::from_two_pos(
+                Pos2::new(rect.min.x, rect.min.y - 20.0),
+                Pos2::new(rect.max.x, rect.min.y),
+            ),
+            0.0,
+            Color32::from_rgb(32, 32, 32),
+            Stroke::new(1.0, Color32::BLACK),
+            egui::StrokeKind::Outside,
+        );
+
+        // 박자 구분을 위한 가이드 라인
+        for i in 0..=(max_width/50.0) as usize {
+            let x = rect.min.x + label_width + (i * 50) as f32;
+            let start_point = Pos2::new(x, rect.min.y - 15.0);
+            let end_point = Pos2::new(x, rect.min.y);
+            painter.line_segment(
+                [start_point, end_point],
+                Stroke::new(1.0, Color32::GRAY),
+            );
+        }
     }
 
     fn set_inspector(&mut self, ui: &mut egui::Ui) {
@@ -563,18 +581,116 @@ impl Player {
         });
     }
 
-    fn set_velocity(&mut self, ui: &mut egui::Ui) {
-        // 6. BOTTOM : 벨로시티 (피아노 건반) 예시
+    fn set_keyboard(&mut self, ui: &mut egui::Ui) {
+        // 6. BOTTOM : 키보드 건반 예시
         // +---------------------------------------------------------+
-        // | Velocity                                                |
+        // | Keyboard                                                |
         // +---------------------------------------------------------+
         // | |=|=|||=|=|=|||=|=|||=|=|=|||=|=|||=|=|=|||=|=|||=|=|=| |
         // |  | | | | | | | | | | | | | | | | | | | | | | | | | | |  |
         // +---------------------------------------------------------+
-        ui.heading("Velocity".to_string());
+        ui.heading("Keyboard".to_string());
         ui.separator();
 
-        ui.label("Velocity Panel (피아노 건반 벨로시티 표시 영역)");
+        let head_height = 29.0;
+        let painter = ui.painter();
+        let font_id = egui::FontId::new(10.0, egui::FontFamily::default());
+
+        // 그릴 수 있는 영역
+        let min = ui.min_rect().min;
+        let max = ui.max_rect().max;
+        let width = max.x - min.x;
+
+        // 건반 크기 값
+        let white_width = 24.0; // 흰 건반 길이: 150mm 내외, 검은 건반 앞으로 노출된 길이 48 ~ 52mm
+        let black_width = 14.0; // 건반 폭: 국제 표준 23.5mm
+        let black_height = 95.0; // 검은 건반 길이: 95mm
+
+        // 시작 노트의 옥타브, 중간 건반에 해당하는 상수 값
+        let note0_octave = -1; // 0번 노트 시작 옥타브: -1 (ISO 표준)
+        let middle: isize = 38; // 중앙 건반: 7(흰 건반 수) * 5(옥타브 수: -1 ~ 4) + 3(F 위치)
+        
+        // 그릴 흰 건반 수
+        let key_count = cmp::min(75, (width / white_width).ceil()as isize);
+
+        // 그릴 좌표 계산
+        let start_x = min.x + (width - (key_count as f32 * white_width)) / 2.0;
+        let start_y = min.y + head_height;
+        let end_y = max.y;
+
+        // 첫번째 음의 건반, 옥타브 계산
+        let start_key = cmp::max(0, middle - (key_count as f32 / 2.0).ceil() as isize);
+        let start_octave = note0_octave + (start_key as i8) / 7;
+
+        // 흰 건반 영역
+        for i in 0..key_count {
+            let note = (start_key + i) as i8;
+
+            // 흰 건반 그리기
+            let x = start_x + i as f32 * white_width;
+            painter.rect(
+                egui::Rect::from_two_pos(
+                    Pos2::new(x, start_y),
+                    Pos2::new(x + white_width - 1.0, end_y - 1.0),
+                ),
+                egui::CornerRadius { nw: 0, ne: 0, se: 2, sw: 2  },
+                Color32::WHITE,
+                Stroke::new(1.0, Color32::GRAY),
+                egui::StrokeKind::Inside,
+            );
+            
+            // 건반 위에 음 이름 표시
+            let name = (65 + (note + 2) as u8 % 7) as char;
+            let octave = start_octave + note / 7;
+            painter.text(
+                Pos2::new(x + white_width / 2.0, end_y - 2.0),
+                egui::Align2::CENTER_BOTTOM,
+                format!("{name}{octave}"),
+                font_id.clone(),
+                Color32::from_rgb(34, 34, 34),
+            );
+        }
+
+        // 검은 건반 영역
+        for i in 0..key_count {
+            let note = (start_key + i) % 7;
+            if matches!(note, 0 | 3) { continue; }
+        
+            // 검은 건반 그리기
+            let x = start_x + i as f32 * white_width - (black_width / 2.0);
+            painter.rect(
+                egui::Rect::from_two_pos(
+                    Pos2::new(x, start_y),
+                    Pos2::new(x + black_width, start_y + black_height),
+                ),
+                egui::CornerRadius { nw: 0, ne: 0, se: 1, sw: 1  },
+                Color32::BLACK,
+                Stroke::new(1.0, Color32::BLACK),
+                egui::StrokeKind::Inside,
+            );
+
+            // 검은 건반 입체 효과
+            painter.rect(
+                egui::Rect::from_two_pos(
+                    Pos2::new(x + 2.0, start_y),
+                    Pos2::new(x + black_width - 2.0, start_y + black_height - 8.0),
+                ),
+                egui::CornerRadius { nw: 0, ne: 0, se: 1, sw: 1  },
+                Color32::BLACK,
+                Stroke::new(1.0, Color32::from_rgb(64, 64, 64)),
+                egui::StrokeKind::Inside,
+            );
+
+            // 건반 위에 음 이름 표시
+            let name = (65 + (note + 1) as u8 % 7) as char;
+            painter.text(
+                Pos2::new(x + black_width / 2.0, start_y + black_height - 10.0),
+                egui::Align2::CENTER_BOTTOM,
+                format!("{name}#"),
+                font_id.clone(),
+                Color32::from_rgb(211, 211, 211),
+            );
+        }
     }
 }
 
@@ -586,32 +702,39 @@ impl App for Player {
             .resizable(false)
             .show(ctx, |ui| self.set_menu_bar(ui));
 
-        // BOTTOM : 벨로시티 (피아노 건반)
-        egui::TopBottomPanel::bottom("velocity")
-            .exact_height(200.0)
+        // BOTTOM : 키보드 건반
+        egui::TopBottomPanel::bottom("Keyboard")
+            .frame(egui::Frame::new().inner_margin(egui::Margin::same(0)))
+            .exact_height(174.0)
             .resizable(false)
-            .show(ctx, |ui| self.set_velocity(ui));
+            .show(ctx, |ui| self.set_keyboard(ui));
 
         // LEFT : 트랙 리스트
         egui::SidePanel::left("track_list")
+            .frame(egui::Frame::new().inner_margin(egui::Margin::same(1)))
             .exact_width(225.0)
             .resizable(false)
             .show(ctx, |ui| self.set_track_list(ui));
 
         // RIGHT : 인스펙터
         egui::SidePanel::right("inspector")
+            .frame(egui::Frame::new().inner_margin(egui::Margin::same(1)))
             .exact_width(225.0)
             .resizable(false)
             .show(ctx, |ui| self.set_inspector(ui));
 
         // CENTER - TOP : 트랜스포트
         egui::TopBottomPanel::top("transport")
+            .frame(egui::Frame::new().inner_margin(egui::Margin::same(1)))
             .exact_height(52.0)
             .resizable(false)
             .show(ctx, |ui| self.set_transport(ui));
 
         // CENTER - MAIN : 피아노 롤 / 그리드
         egui::CentralPanel::default()
+            .frame(egui::Frame::new().inner_margin(egui::Margin {
+                top: 20, left: 0, right: 0, bottom: 0,
+            }))
             .show(ctx, |ui| self.set_grid(ui));
     }
 }
