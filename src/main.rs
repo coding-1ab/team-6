@@ -1,6 +1,6 @@
-pub mod sound;
+pub mod audio;
 pub mod ui;
 
 fn main() {
-    ui::open_app().unwrap();
+    ui::MidiApp::run().unwrap();
 }
