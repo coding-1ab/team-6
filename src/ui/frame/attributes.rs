@@ -28,8 +28,8 @@ impl Frame for Attributes {
     const HEIGHT: f32 = 0.0;
     const RESIZABLE: bool = false;
 
-    fn draw(ui: &mut egui::Ui, app: &mut MidiApp) {
-        Attributes::header(ui, Attributes::FRAME_NAME);
+    fn draw(&mut self, ui: &mut egui::Ui, _app: &mut MidiApp) {
+        self.header(ui);
 
         ui.scope_builder(egui::UiBuilder::new(), |ui| {
             egui::Grid::new(Attributes::FRAME_NAME)

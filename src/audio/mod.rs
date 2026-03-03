@@ -5,7 +5,7 @@ use std::{fs::File, sync::{Arc, Mutex}};
 use crate::audio::state::SharedAudioState;
 
 pub mod midi;
-pub mod note;
+pub mod midi_struct;
 pub mod state;
 
 pub struct Audio {
@@ -64,13 +64,13 @@ fn process_audio_block(
         return; 
     }
 
-    for (channel, program) in &shared.programs {
-        synth.process_midi_message(*channel as i32, 0xC0, *program as i32, 0);
+    for (channel, instrument) in shared.instruments.iter() {
+        synth.process_midi_message(*channel as i32, 0xC0, *instrument, 0);
     }
 
     let current_time = shared.playback_cursor;
     let next_time = current_time + frame_count;
-    for note in &shared.notes {
+    for note in shared.notes.iter() {
         // 현재 버퍼 시간 내에 노트 시작점이 있는지 확인
         if note.start_sample >= current_time && note.start_sample < next_time {
             synth.note_on(note.channel, note.key, note.velocity);

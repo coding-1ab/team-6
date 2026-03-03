@@ -49,9 +49,9 @@ impl Frame for Keyboard {
     const HEIGHT: f32 = 174.0;
     const RESIZABLE: bool = false;
 
-    fn draw(ui: &mut egui::Ui, app: &mut MidiApp) {
+    fn draw(&mut self, ui: &mut egui::Ui, app: &mut MidiApp) {
         // BOTTOM : 키보드 건반
-        Keyboard::header(ui, Keyboard::FRAME_NAME);
+        self.header(ui);
 
         // 현재 눌러져 있는 건반 체크
         let mut notes = HashMap::new();

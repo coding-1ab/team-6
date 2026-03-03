@@ -45,7 +45,7 @@ impl Frame for NoteGrid {
     const HEIGHT: f32 = 0.0;
     const RESIZABLE: bool = true;
 
-    fn draw(ui: &mut egui::Ui, app: &mut MidiApp) {
+    fn draw(&mut self, ui: &mut egui::Ui, app: &mut MidiApp) {
         let rect = ui.response().rect;
         let label_width = 35.0; // 음 이름 표시 너비 값
         let beats_width = 50.0; // 1박자당 너비 값

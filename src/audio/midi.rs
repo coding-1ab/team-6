@@ -1,16 +1,17 @@
 use std::collections::HashMap;
 use midly::{MetaMessage, MidiMessage, Timing, TrackEventKind};
 
-use crate::audio::note::{MidiData, MidiMeta};
+use crate::audio::midi_struct::{MidiData, MidiMeta, MidiTrack};
 
 pub struct MidiManager {
     is_parsing: bool,
     data: Vec<u8>,
     pub total_seconds: f64,
     pub ppq: f64,
+    pub solo_track: Option<u8>,
     pub meta: MidiMeta,
     pub midi: HashMap<u8, HashMap<u8, Vec<MidiData>>>,
-    pub programs: HashMap<u8, u8>,
+    pub tracks: HashMap<u8, MidiTrack>,
 }
 
 impl Default for MidiManager {
@@ -20,21 +21,21 @@ impl Default for MidiManager {
             data: Vec::new(),
             total_seconds: 0.0,
             ppq: 0.0,
+            solo_track: None,
             meta: MidiMeta {
                 track_number: 0,
+                text: String::new(),
+                copyright: String::new(),
                 program_name: String::new(),
                 tempo: 0.0,
                 time_signature: [0,0,0,0],
                 key_signature: 0,
                 is_minor: true,
-                text: String::new(),
-                copyright: String::new(),
                 track_name: String::new(),
-                instrument_name: String::new(),
                 marker: String::new(),
             },
             midi: HashMap::new(),
-            programs: HashMap::new(),
+            tracks: HashMap::new(),
         }
     }
 }
@@ -74,6 +75,11 @@ impl MidiManager {
                                 // 트랙 이름
                                 self.meta.track_name = String::from_utf8_lossy(data).into_owned().replace("\0", "");
                                 // println!("TrackName: {:?}", self.meta.track_name);
+                            }
+                            MetaMessage::InstrumentName(data) => {
+                                let instrument_name = String::from_utf8_lossy(data).into_owned().replace("\0", "");
+                                println!("Intrument Name: {:?}", instrument_name);
+                                // self.tracks.get()
                             }
                             MetaMessage::ProgramName(program_name) => {
                                 // 프로그램 이름
@@ -119,10 +125,22 @@ impl MidiManager {
                         }
                         let midi = self.midi.get_mut(&channel).unwrap();
 
+                        if !self.tracks.contains_key(&channel) {
+                            let track = MidiTrack {
+                                name: "Track".to_string(),
+                                channel,
+                                instrument: 0,
+                                instrument_name: String::new(),
+                                is_muted: false,
+                                volume: 100.0,
+                            };
+                            self.tracks.insert(channel, track);
+                        }
+
                         match message {
                             MidiMessage::ProgramChange { program } => {
                                 // 채널 별 악기
-                                self.programs.insert(channel, program.as_int());
+                                self.tracks.get_mut(&channel).unwrap().instrument = program.as_int();
                             }
                             MidiMessage::NoteOn { key, vel } => {
                                 // 노트 온 (velocity 값이 0으로 오프가 되는 경우도 있음)
@@ -193,6 +211,7 @@ impl MidiManager {
         self.data = Vec::new();
         self.total_seconds = 0.0;
         self.ppq = 0.0;
+        self.solo_track = None;
         self.meta = MidiMeta {
             track_number: 0,
             program_name: String::new(),
@@ -203,9 +222,9 @@ impl MidiManager {
             text: String::new(),
             copyright: String::new(),
             track_name: String::new(),
-            instrument_name: String::new(),
             marker: String::new(),
         };
+        self.tracks = HashMap::new();
         self.midi = HashMap::new();
     }
 }

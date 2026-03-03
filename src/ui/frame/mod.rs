@@ -18,16 +18,16 @@ pub trait Frame {
     const HEIGHT: f32;
     const RESIZABLE: bool;
     
-    fn draw(ui: &mut egui::Ui, app: &mut MidiApp);
+    fn draw(&mut self, ui: &mut egui::Ui, app: &mut MidiApp);
 
-    fn header(ui: &mut egui::Ui, label: &str) {
+    fn header(&self, ui: &mut egui::Ui) {
         egui::Frame::new()
             .inner_margin(Margin { top: 4, left: 6, right: 6, bottom: 4 })
             .fill(Color32::from_rgb(32, 32, 32))
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
                 ui.visuals_mut().override_text_color = Some(Color32::WHITE);
-                ui.label(label.to_uppercase());
+                ui.label(Self::FRAME_NAME.to_uppercase());
             });
     }
 }

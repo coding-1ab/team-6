@@ -27,7 +27,7 @@ impl Frame for Transport {
     const HEIGHT: f32 = 52.0;
     const RESIZABLE: bool = false;
 
-    fn draw(ui: &mut egui::Ui, app: &mut MidiApp) {
+    fn draw(&mut self, ui: &mut egui::Ui, app: &mut MidiApp) {
         let is_file_open = !app.open_file_name.is_empty();
 
         egui::Frame::new()

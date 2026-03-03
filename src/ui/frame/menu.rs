@@ -26,7 +26,7 @@ impl Frame for Menu {
     const HEIGHT: f32 = 23.0;
     const RESIZABLE: bool = false;
 
-    fn draw(ui: &mut egui::Ui, app: &mut MidiApp) {
+    fn draw(&mut self, ui: &mut egui::Ui, app: &mut MidiApp) {
         let ctrl = if OS == "macos" { "⌘" } else { "Ctrl +" };
 
         egui::Frame::new()
@@ -52,19 +52,19 @@ impl Frame for Menu {
                         let track_list_show_btn = egui::Button::new("TrackList").shortcut_text(format!("{} T", ctrl));
                         if ui.add(track_list_show_btn).clicked() {
                             // 트랙리스트 창 표시
-                            app.open_file();
+                            app.show_track_list = !app.show_track_list;
                         }
 
                         let attributes_show_btn = egui::Button::new("Attributes").shortcut_text(format!("{} A", ctrl));
                         if ui.add(attributes_show_btn).clicked() {
                             // 속성 창 표시
-                            app.close();
+                            app.show_attributes = !app.show_attributes;
                         }
 
                         let keyboard_show_btn = egui::Button::new("Keyboard").shortcut_text(format!("{} K", ctrl));
                         if ui.add(keyboard_show_btn).clicked() {
                             // 키보드 창 표시
-                            app.close();
+                            app.show_keyboard = !app.show_keyboard;
                         }
                     });
                 });
