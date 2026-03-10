@@ -106,7 +106,7 @@ impl Frame for Keyboard {
         for i in 0..key_count {
             let note = (start_key + i) as i8;
             let octave = start_octave + note / 7;
-            let real_note = octave as u8 * 12 + WHITE_KEYS[(note % 7) as usize];
+            let real_note = (octave + 1) as u8 * 12 + WHITE_KEYS[(note % 7) as usize];
             let is_pressed = notes.contains_key(&real_note);
 
             // 흰 건반 그리기
@@ -138,7 +138,7 @@ impl Frame for Keyboard {
             let note = (start_key + i) % 7;
             if matches!(note, 0 | 3) { continue; }
             let octave = start_octave + (start_key + i) as i8 / 7;
-            let real_note = octave as u8 * 12 + WHITE_KEYS[(note % 7) as usize] - 1;
+            let real_note = (octave + 1) as u8 * 12 + WHITE_KEYS[(note % 7) as usize] - 1;
             let is_pressed = notes.contains_key(&real_note);
         
             // 검은 건반 그리기
